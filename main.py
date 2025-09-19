@@ -92,7 +92,7 @@ def serial_reader():
                     except:
                         row[k] = None
 
-            # ONLY accept rows whose status is b0 (case-insensitive)
+            # # ONLY accept rows whose status is b0 (case-insensitive)
             status_val = str(row.get("status","")).strip().lower()
             if status_val != "b0":
                 # we still printed the raw line above, but we drop it here.

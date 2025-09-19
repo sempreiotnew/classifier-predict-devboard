@@ -24,12 +24,13 @@ def incremental_train(new_csv_files):
     new_dfs = []
     for csv_file in new_csv_files:
         df = pd.read_csv(csv_file)
-        df = df[~df['gas_index'].isin([99, 100])]  # ignore invalid indexes
+        # df = df[~df['gas_index'].isin([99, 100])]  # ignore invalid indexes
         new_dfs.append(df)
     data = pd.concat(new_dfs, ignore_index=True)
 
     # Features and labels
-    features = ['millis','gas_index','mes_index','temperature','pressure','humidity','gas_resistance']
+    # features = ['gas_index','temperature','pressure','humidity','gas_resistance']
+    features = ['temperature','gas_resistance']
     X = data[features]
     y = le.fit_transform(data['label'])
 
@@ -74,4 +75,4 @@ def incremental_train(new_csv_files):
 
 if __name__ == "__main__":
     # Example: train with one dataset
-    incremental_train(["ar_cigarro.csv"])
+    incremental_train(["teste.csv"])
