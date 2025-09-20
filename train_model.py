@@ -75,4 +75,4 @@ def incremental_train(new_csv_files):
 
 if __name__ == "__main__":
     # Example: train with one dataset
-    incremental_train(["teste.csv"])
+    incremental_train(["new_data.csv", "ar1.csv", "ar2.csv"])

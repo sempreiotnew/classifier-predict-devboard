@@ -9,6 +9,7 @@ from plotly.subplots import make_subplots
 from dash import Dash, dcc, html
 from dash.dependencies import Input, Output
 import joblib
+from datetime import datetime
 
 # ---------------- CONFIG ----------------
 SERIAL_PORT = "/dev/cu.usbserial-0001"
@@ -22,6 +23,7 @@ header = ["id","index","millis","gas_index","mes_index",
 serial_lock = threading.Lock()
 serial_buffer = deque(maxlen=MAX_BUFFER_LINES)
 current_prediction = None
+start_time = datetime.now()  # reference for millis → timestamp conversion
 
 # Load trained model
 clf, le = joblib.load(MODEL_FILE)
@@ -111,6 +113,7 @@ def make_figure(df):
         return go.Figure()
 
     d = df.sort_values(["millis", "gas_index"])
+    d["timestamp"] = start_time + pd.to_timedelta(d["millis"], unit="ms")
 
     fig = make_subplots(
         rows=4, cols=1,
@@ -128,26 +131,40 @@ def make_figure(df):
         for gi in sorted(d["gas_index"].dropna().unique()):
             sub = d[d["gas_index"] == gi]
             fig.add_trace(go.Scatter(
-                x=sub["millis"],
+                x=sub["timestamp"],
                 y=sub["gas_resistance"],
                 mode="lines+markers",
                 name=f"Step {int(gi)}",
                 line=dict(color=colors[int(gi) % len(colors)])
             ), row=1, col=1)
 
+    # 🔹 Add prediction text in bottom-right of Gas Resistance subplot
+    if current_prediction:
+        fig.add_annotation(
+            text=f"Prediction: {current_prediction}",
+            xref="x1", yref="y1",   # bind to Gas Resistance axes
+            x=d["timestamp"].max(),  # right edge of x-axis
+            y=d["gas_resistance"].min(),  # bottom of y-axis
+            xanchor="right", yanchor="bottom",
+            showarrow=False,
+            font=dict(size=14, color="white"),
+            bgcolor="rgba(16,185,129,0.7)",
+            borderpad=4
+        )
+
     # Temperature
     if "temperature" in d.columns:
-        fig.add_trace(go.Scatter(x=d["millis"], y=d["temperature"],
+        fig.add_trace(go.Scatter(x=d["timestamp"], y=d["temperature"],
                                  mode="lines+markers", name="Temperature (°C)"),
                       row=2, col=1)
     # Pressure
     if "pressure" in d.columns:
-        fig.add_trace(go.Scatter(x=d["millis"], y=d["pressure"],
+        fig.add_trace(go.Scatter(x=d["timestamp"], y=d["pressure"],
                                  mode="lines+markers", name="Pressure (Pa)"),
                       row=3, col=1)
     # Humidity
     if "humidity" in d.columns:
-        fig.add_trace(go.Scatter(x=d["millis"], y=d["humidity"],
+        fig.add_trace(go.Scatter(x=d["timestamp"], y=d["humidity"],
                                  mode="lines+markers", name="Humidity (%)"),
                       row=4, col=1)
 
@@ -158,10 +175,11 @@ def make_figure(df):
     fig.update_yaxes(title_text="Temperature (°C)", row=2, col=1)
     fig.update_yaxes(title_text="Pressure (Pa)", row=3, col=1)
     fig.update_yaxes(title_text="Humidity (%)", row=4, col=1)
-    fig.update_xaxes(title_text="Time (ms)", row=4, col=1,
+    fig.update_xaxes(title_text="Time", row=4, col=1,
                      rangeslider_visible=True, rangeslider_thickness=0.1)
 
     return fig
+
 
 # ---------------- DASH APP ----------------
 app = Dash(__name__)
@@ -188,7 +206,7 @@ app.layout = html.Div([
 def update_dashboard(n):
     df = load_data()
     fig = make_figure(df)
-    return f"Current Prediction: {current_prediction if current_prediction else 'None'}", fig
+    return f"{current_prediction if current_prediction else 'None'}", fig
 
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
